@@ -1,27 +1,9 @@
-# distributed-cache
-GO Distributed Cache
-
-## Description
-This is a distributed cache system that  to distribute the data across multiple nodes. The system is designed to be fault-tolerant and can handle node failures. The system is implemented in Go and uses UPD Communication 
-
-## Features
-
-LRU Cache
-
-
-LRU Cache With TTL
-
-Example
-```go
 package main
 
 import (
 	distributed_cache "github.com/diogenes-moreira/distributed-cache"
 	"time"
 )
-
-	
-
 
 func main() {
 	// Create a new cache with the name "cache" and the address UDP Port ":12345".
@@ -33,14 +15,14 @@ func main() {
 	if value != nil {
 		println(value.(string))
 	}
-	
+
 	// LRU Cache Extend the Cache struct and limit the number of entries to 10.
 	lruCache := distributed_cache.NewLRUCache("lru", ":12345", 10)
 	lruCache.Set("key", "value")
 	value = lruCache.Get("key")
-	
+
 	// LRU Cache with TTL Extend the lruCache struct and add a TTL of 10 seconds.
 	lruCacheWithTTL := distributed_cache.NewLRUCacheWithTTL("lru", ":12345", 10, time.Second*10)
-	lruCache.Set("key", "value")
+	lruCacheWithTTL.Set("key", "value")
 	value = lruCache.Get("key")
 }

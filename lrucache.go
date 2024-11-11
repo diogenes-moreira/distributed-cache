@@ -59,7 +59,7 @@ func (c *LRUCache) Delete(key string) {
 }
 
 func NewLRUCache(name, address string, maxEntries int) *LRUCache {
-	return &LRUCache{
+	c := &LRUCache{
 		Cache: Cache{
 			Name:    name,
 			Address: address,
@@ -67,4 +67,6 @@ func NewLRUCache(name, address string, maxEntries int) *LRUCache {
 		},
 		MaxEntries: maxEntries,
 	}
+	go c.StartListener()
+	return c
 }

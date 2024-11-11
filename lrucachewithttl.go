@@ -36,7 +36,7 @@ func (c *LRUCacheWithTTL) evict() {
 }
 
 func NewLRUCacheWithTTL(name, address string, maxEntries int, ttl time.Duration) *LRUCacheWithTTL {
-	return &LRUCacheWithTTL{
+	c := &LRUCacheWithTTL{
 		LRUCache: LRUCache{
 			Cache: Cache{
 				Name:    name,
@@ -48,4 +48,13 @@ func NewLRUCacheWithTTL(name, address string, maxEntries int, ttl time.Duration)
 		TTL:    ttl,
 		TTLMap: make(map[string]time.Time),
 	}
+
+	go c.StartListener()
+	go func() {
+		for {
+			time.Sleep(ttl)
+			c.evict()
+		}
+	}()
+	return c
 }

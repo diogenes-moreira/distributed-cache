@@ -29,9 +29,11 @@ func (c *Cache) Clean() {
 }
 
 func NewCache(name, address string) *Cache {
-	return &Cache{
+	c := &Cache{
 		Name:    name,
 		Address: address,
 		storage: make(map[string]interface{}),
 	}
+	go c.StartListener()
+	return c
 }
