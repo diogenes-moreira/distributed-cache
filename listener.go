@@ -8,13 +8,23 @@ import (
 	"os"
 )
 
+// in this file, you can find the methods createConnection and handleClient
+// that are used to create a connection and handle the client messages
+// those methods are used internally in the Cache struct,
+// to start the listener
+
+// UDPConnInterface is an interface,
+// that defines the methods of the UDPConn struct
+// that are created by uncouple of the net.UDPConn struct,
+// to be able to mock it for testing
 type UDPConnInterface interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
 	Write(b []byte) (n int, err error)
 	Close() error
 }
 
-func (c *Cache) StartListener() {
+// startListener starts the listener to receive messages from the other nodes
+func (c *Cache) startListener() {
 	conn := createConnection(c.Address)
 	for {
 		message, err := handleClient(conn)
@@ -34,6 +44,7 @@ func (c *Cache) StartListener() {
 	}
 }
 
+// createConnection creates a connection to listen for messages
 func createConnection(address string) *net.UDPConn {
 	udpAddr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
@@ -47,6 +58,7 @@ func createConnection(address string) *net.UDPConn {
 	return conn
 }
 
+// handleClient handles the client messages
 func handleClient(conn UDPConnInterface) (*Message, error) {
 	buffer := make([]byte, 1024)
 	n, _, err := conn.ReadFromUDP(buffer)
