@@ -7,13 +7,13 @@ import (
 )
 
 func TestMessage_ToUDP(t *testing.T) {
-	msg := &Message{CacheName: "testCache", Key: "testKey", Value: "testValue"}
-	data, err := msg.ToUDP()
+	msg := &message{CacheName: "testCache", Key: "testKey", Value: "testValue"}
+	data, err := msg.toUDP()
 	if err != nil {
 		t.Fatalf("ToUDP() error = %v", err)
 	}
 
-	var decodedMsg Message
+	var decodedMsg message
 	network := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(network)
 	err = dec.Decode(&decodedMsg)
@@ -27,14 +27,14 @@ func TestMessage_ToUDP(t *testing.T) {
 }
 
 func TestMessage_FromUDP(t *testing.T) {
-	msg := &Message{CacheName: "testCache", Key: "testKey", Value: "testValue"}
-	data, err := msg.ToUDP()
+	msg := &message{CacheName: "testCache", Key: "testKey", Value: "testValue"}
+	data, err := msg.toUDP()
 	if err != nil {
 		t.Fatalf("ToUDP() error = %v", err)
 	}
 
-	var decodedMsg Message
-	err = decodedMsg.FromUDP(data)
+	var decodedMsg message
+	err = decodedMsg.fromUDP(data)
 	if err != nil {
 		t.Fatalf("FromUDP() error = %v", err)
 	}
@@ -45,13 +45,13 @@ func TestMessage_FromUDP(t *testing.T) {
 }
 
 func TestMessage_IsCleanMessage(t *testing.T) {
-	cleanMsg := &Message{Key: CleanMessageKey, Value: nil}
-	if !cleanMsg.IsCleanMessage() {
+	cleanMsg := &message{Key: cleanMessageKey, Value: nil}
+	if !cleanMsg.isCleanMessage() {
 		t.Errorf("IsCleanMessage() = false, want true")
 	}
 
-	nonCleanMsg := &Message{Key: "testKey", Value: "testValue"}
-	if nonCleanMsg.IsCleanMessage() {
+	nonCleanMsg := &message{Key: "testKey", Value: "testValue"}
+	if nonCleanMsg.isCleanMessage() {
 		t.Errorf("IsCleanMessage() = true, want false")
 	}
 }

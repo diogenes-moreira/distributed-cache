@@ -13,7 +13,6 @@ import "time"
 // it will be deleted after the TTL expires.
 // The Evict method is called periodically (TTL Period)
 // to delete entries that have expired.
-
 type LRUCacheWithTTL struct {
 	LRUCache
 	TTL    time.Duration

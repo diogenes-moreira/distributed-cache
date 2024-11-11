@@ -28,8 +28,8 @@ func createMockConnection(data []byte) *MockUDPConn {
 }
 
 func TestHandleClient(t *testing.T) {
-	message := &Message{CacheName: "testCache", Key: "testKey", Value: "testValue"}
-	data, err := message.ToUDP()
+	message := &message{CacheName: "testCache", Key: "testKey", Value: "testValue"}
+	data, err := message.toUDP()
 	if err != nil {
 		t.Fatalf("ToUDP() error = %v", err)
 	}

@@ -13,11 +13,11 @@ import (
 // those methods are used internally in the Cache struct,
 // to start the listener
 
-// UDPConnInterface is an interface,
+// uDPConnInterface is an interface,
 // that defines the methods of the UDPConn struct
 // that are created by uncouple of the net.UDPConn struct,
 // to be able to mock it for testing
-type UDPConnInterface interface {
+type uDPConnInterface interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
 	Write(b []byte) (n int, err error)
 	Close() error
@@ -35,7 +35,7 @@ func (c *Cache) startListener() {
 		if message.CacheName != c.Name {
 			continue
 		}
-		if message.IsCleanMessage() {
+		if message.isCleanMessage() {
 			c.storage = make(map[string]interface{})
 			continue
 		} else {
@@ -59,7 +59,7 @@ func createConnection(address string) *net.UDPConn {
 }
 
 // handleClient handles the client messages
-func handleClient(conn UDPConnInterface) (*Message, error) {
+func handleClient(conn uDPConnInterface) (*message, error) {
 	buffer := make([]byte, 1024)
 	n, _, err := conn.ReadFromUDP(buffer)
 	if err != nil {
@@ -67,9 +67,9 @@ func handleClient(conn UDPConnInterface) (*Message, error) {
 		return nil, err
 	}
 
-	var message Message
+	var message message
 	network := bytes.NewBuffer(buffer[:n])
-	if err := message.FromUDP(network.Bytes()); err != nil {
+	if err := message.fromUDP(network.Bytes()); err != nil {
 		log.Println(err)
 		return nil, err
 	}

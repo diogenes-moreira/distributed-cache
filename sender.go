@@ -11,26 +11,26 @@ import (
 
 // sendDelete sends a delete message to the other nodes for a given key
 func (c *Cache) sendDelete(key string) {
-	message := &Message{Key: key, Value: nil, CacheName: c.Name}
+	message := &message{Key: key, Value: nil, CacheName: c.Name}
 	sendMessage(c.Address, message)
 }
 
 // sendSet sends a set message to the other nodes for a given key and value
 func (c *Cache) sendSet(key string, value interface{}) {
-	message := &Message{Key: key, Value: value, CacheName: c.Name}
+	message := &message{Key: key, Value: value, CacheName: c.Name}
 	sendMessage(c.Address, message)
 }
 
 // clean sends a clean message to the other nodes
 func (c *Cache) clean() {
-	message := &Message{Key: CleanMessageKey, Value: nil, CacheName: c.Name}
+	message := &message{Key: cleanMessageKey, Value: nil, CacheName: c.Name}
 	sendMessage(c.Address, message)
 }
 
 // sendMessage sends a message to the other nodes,
 // the connection is created and closed in this function because is
 // a simple UDP message
-func sendMessage(address string, message *Message) {
+func sendMessage(address string, message *message) {
 	conn := createConnection(address)
 	defer func(conn *net.UDPConn) {
 		err := conn.Close()
@@ -38,7 +38,7 @@ func sendMessage(address string, message *Message) {
 			log.Println(err)
 		}
 	}(conn)
-	data, err := message.ToUDP()
+	data, err := message.toUDP()
 	if err != nil {
 		log.Println(err)
 		return

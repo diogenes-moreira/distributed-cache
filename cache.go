@@ -4,11 +4,11 @@ package distributed_cache
 // the Cache struct and the methods Set, Get, Delete and Clean
 // that are used to interact with the cache
 
-// Cache is a simple cache interface
+// Cache is a simple cache interface, to create a cache you must Use NewCache Method
 type Cache struct {
 	storage map[string]interface{}
-	Name    string
-	Address string
+	Name    string // Name of the cache
+	Address string // Port over which the cache will communicate
 }
 
 // Set sets a value in the cache and sends it to the other nodes
@@ -39,6 +39,8 @@ func (c *Cache) Clean() {
 	c.clean()
 }
 
+// NewCache creates a new Cache with the given name and address
+// It also starts a listener to receive messages from other nodes
 func NewCache(name, address string) *Cache {
 	c := &Cache{
 		Name:    name,

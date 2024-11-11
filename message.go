@@ -1,3 +1,6 @@
+// Package distributed_cache contains all necessary files
+// to add a distributed cache to your application.
+// The communication between nodes using UDP.
 package distributed_cache
 
 import (
@@ -5,15 +8,15 @@ import (
 	"encoding/gob"
 )
 
-// Message is a struct that represents a message that can be sent between nodes.
-type Message struct {
+// message is a struct that represents a message that can be sent between nodes.
+type message struct {
 	CacheName string
 	Key       string
 	Value     interface{}
 }
 
-// ToUDP serializes the Message struct to a byte slice.
-func (m *Message) ToUDP() ([]byte, error) {
+// ToUDP serializes the message struct to a byte slice.
+func (m *message) toUDP() ([]byte, error) {
 	var network bytes.Buffer
 	enc := gob.NewEncoder(&network)
 	err := enc.Encode(m)
@@ -23,8 +26,8 @@ func (m *Message) ToUDP() ([]byte, error) {
 	return network.Bytes(), nil
 }
 
-// FromUDP deserializes the byte slice to a Message struct.
-func (m *Message) FromUDP(data []byte) error {
+// FromUDP deserializes the byte slice to a message struct.
+func (m *message) fromUDP(data []byte) error {
 	network := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(network)
 	err := dec.Decode(m)
@@ -35,9 +38,9 @@ func (m *Message) FromUDP(data []byte) error {
 }
 
 // IsCleanMessage returns true if the message is a clean message.
-func (m *Message) IsCleanMessage() bool {
-	return m.Key == CleanMessageKey && m.Value == nil
+func (m *message) isCleanMessage() bool {
+	return m.Key == cleanMessageKey && m.Value == nil
 }
 
-// CleanMessageKey is the key used to send a clean message.
-const CleanMessageKey = "<clean>"
+// cleanMessageKey is the key used to send a clean message.
+const cleanMessageKey = "<clean>"
