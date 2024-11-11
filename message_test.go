@@ -21,7 +21,8 @@ func TestMessage_ToUDP(t *testing.T) {
 		t.Fatalf("Decode() error = %v", err)
 	}
 
-	if decodedMsg.CacheName != msg.CacheName || decodedMsg.Key != msg.Key || decodedMsg.Value != msg.Value {
+	if decodedMsg.CacheName != msg.CacheName || decodedMsg.Key != msg.Key ||
+		decodedMsg.Value != msg.Value {
 		t.Errorf("Decoded message = %v, want %v", decodedMsg, msg)
 	}
 }
@@ -39,7 +40,8 @@ func TestMessage_FromUDP(t *testing.T) {
 		t.Fatalf("FromUDP() error = %v", err)
 	}
 
-	if decodedMsg.CacheName != msg.CacheName || decodedMsg.Key != msg.Key || decodedMsg.Value != msg.Value {
+	if decodedMsg.CacheName != msg.CacheName || decodedMsg.Key != msg.Key ||
+		decodedMsg.Value != msg.Value {
 		t.Errorf("Decoded message = %v, want %v", decodedMsg, msg)
 	}
 }

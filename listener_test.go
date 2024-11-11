@@ -40,7 +40,8 @@ func TestHandleClient(t *testing.T) {
 		t.Fatalf("handleClient() error = %v", err)
 	}
 
-	if receivedMessage.CacheName != message.CacheName || receivedMessage.Key != message.Key || receivedMessage.Value != message.Value {
+	if receivedMessage.CacheName != message.CacheName || receivedMessage.Key != message.Key ||
+		receivedMessage.Value != message.Value {
 		t.Errorf("Expected message %v, got %v", message, receivedMessage)
 	}
 }
