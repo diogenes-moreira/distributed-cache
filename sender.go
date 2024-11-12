@@ -1,6 +1,6 @@
 package distributed_cache
 
-// In this file, you can find the methods sendDelete, sendSet and clean
+// In this file, you can find the methods sendDelete, sendSet and sendClean
 // that are used to send messages to the other nodes.
 //Those methods are used internally
 //in the Cache struct to send messages to the other nodes
@@ -21,8 +21,8 @@ func (c *Cache) sendSet(key string, value interface{}) {
 	sendMessage(c.Address, message)
 }
 
-// clean sends a clean message to the other nodes
-func (c *Cache) clean() {
+// sendClean sends a sendClean message to the other nodes
+func (c *Cache) sendClean() {
 	message := &message{Key: cleanMessageKey, Value: nil, CacheName: c.Name}
 	sendMessage(c.Address, message)
 }
@@ -31,7 +31,7 @@ func (c *Cache) clean() {
 // the connection is created and closed in this function because is
 // a simple UDP message
 func sendMessage(address string, message *message) {
-	conn := createConnection(address)
+	conn := createSender(address)
 	defer func(conn *net.UDPConn) {
 		err := conn.Close()
 		if err != nil {
@@ -48,4 +48,16 @@ func sendMessage(address string, message *message) {
 		log.Println(err)
 		return
 	}
+}
+
+func createSender(address string) *net.UDPConn {
+	udpAddr, err := net.ResolveUDPAddr("udp", "255.255.255.255"+address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	conn, err := net.DialUDP("udp", nil, udpAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return conn
 }

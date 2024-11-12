@@ -5,7 +5,11 @@ package distributed_cache
 //Recently Used (LRU) algorithm to evict entries when the cache is full.
 //Only NewLRUCacheWithTTL is exported, the rest of the methods are private
 
-import "time"
+import (
+	"context"
+	"sync"
+	"time"
+)
 
 // LRUCacheWithTTL is a cache that uses the Least Recently Used (LRU) algorithm
 // to evict entries when the cache is full.
@@ -15,39 +19,80 @@ import "time"
 // to delete entries that have expired.
 type LRUCacheWithTTL struct {
 	LRUCache
-	TTL    time.Duration
-	TTLMap map[string]time.Time
+	TTL      time.Duration
+	ttlMap   map[string]time.Time
+	ttlMutex sync.Mutex
 }
 
-// pushFront adds a key to the front of the queue and updates the TTLMap.
+// pushFront adds a key to the front of the queue and updates the ttlMap.
 func (c *LRUCacheWithTTL) pushFront(key string) {
 	c.LRUCache.pushFront(key)
-	c.TTLMap[key] = time.Now().Add(c.TTL)
+	c.ttlMutex.Lock()
+	c.ttlMap[key] = time.Now().Add(c.TTL)
+	c.ttlMutex.Unlock()
 }
 
-// deleteLast deletes the last key from the queue and updates the TTLMap.
+// deleteLast deletes the last key from the queue and updates the ttlMap.
 func (c *LRUCacheWithTTL) deleteLast() {
+	c.ttlMutex.Lock()
+	defer c.ttlMutex.Unlock()
 	if len(c.queue) == 0 {
 		return
 	}
 	key := c.queue[len(c.queue)-1]
-	delete(c.TTLMap, key)
+	delete(c.ttlMap, key)
 	c.LRUCache.deleteLast()
 }
 
-// deleteFromQueue deletes a key from the queue and updates the TTLMap.
+// deleteFromQueue deletes a key from the queue and updates the ttlMap.
 func (c *LRUCacheWithTTL) deleteFromQueue(key string) {
-	delete(c.TTLMap, key)
+	delete(c.ttlMap, key)
 	c.LRUCache.deleteFromQueue(key)
 }
 
-// evict deletes the last key from the queue and updates the TTLMap.
+func (c *LRUCacheWithTTL) Set(key string, value interface{}) {
+	c.evict()
+	c.pushFront(key)
+	c.LRUCache.Set(key, value)
+}
+
+func (c *LRUCacheWithTTL) Get(key string) interface{} {
+	c.evict()
+	out := c.LRUCache.Get(key)
+	if out != nil {
+		c.pushFront(key)
+	}
+	return out
+}
+
+func (c *LRUCacheWithTTL) Delete(key string) {
+	c.ttlMutex.Lock()
+	c.delete(key)
+	c.ttlMutex.Unlock()
+}
+
+func (c *LRUCacheWithTTL) delete(key string) {
+	c.deleteFromQueue(key)
+	c.LRUCache.Delete(key)
+	delete(c.ttlMap, key)
+}
+
+// evict deletes the last key from the queue and updates the ttlMap.
 func (c *LRUCacheWithTTL) evict() {
-	for key, ttl := range c.TTLMap {
+	c.ttlMutex.Lock()
+	defer c.ttlMutex.Unlock()
+	for key, ttl := range c.ttlMap {
 		if ttl.Before(time.Now()) {
-			c.Delete(key)
+			c.delete(key)
 		}
 	}
+}
+
+func (c *LRUCacheWithTTL) Clean() {
+	c.LRUCache.Clean()
+	c.ttlMutex.Lock()
+	c.ttlMap = make(map[string]time.Time)
+	c.ttlMutex.Unlock()
 }
 
 // NewLRUCacheWithTTL creates a new LRUCacheWithTTL with the given name,
@@ -60,24 +105,22 @@ func (c *LRUCacheWithTTL) evict() {
 // ttl is the time-to-live for each entry in the cache
 func NewLRUCacheWithTTL(name, address string, maxEntries int, ttl time.Duration) *LRUCacheWithTTL {
 	c := &LRUCacheWithTTL{
-		LRUCache: LRUCache{
-			Cache: Cache{
-				Name:    name,
-				Address: address,
-				storage: make(map[string]interface{}),
-			},
-			MaxEntries: maxEntries,
-		},
-		TTL:    ttl,
-		TTLMap: make(map[string]time.Time),
+		LRUCache: *NewLRUCache(name, address, maxEntries),
+		TTL:      ttl,
+		ttlMap:   make(map[string]time.Time),
+		ttlMutex: sync.Mutex{},
 	}
 
-	go c.startListener()
-	go func() {
+	go func(ctx context.Context) {
 		for {
-			time.Sleep(ttl)
-			c.evict()
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				time.Sleep(ttl)
+				c.evict()
+			}
 		}
-	}()
+	}(c.context)
 	return c
 }

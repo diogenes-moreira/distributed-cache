@@ -3,10 +3,15 @@ package distributed_cache
 import (
 	"net"
 	"testing"
+	"time"
 )
 
 type MockUDPConn struct {
 	data []byte
+}
+
+func (m *MockUDPConn) SetReadDeadline(time time.Time) error {
+	return nil
 }
 
 func (m *MockUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {

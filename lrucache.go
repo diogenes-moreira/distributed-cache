@@ -1,5 +1,7 @@
 package distributed_cache
 
+import "sync"
+
 //In this file, you can find the LRUCache struct.
 //That implements the Cache interface.
 //All methods are implemented in this file to create a cache that uses the Least
@@ -12,15 +14,20 @@ type LRUCache struct {
 	Cache
 	MaxEntries int
 	queue      []string
+	queueMutex sync.Mutex
 }
 
 // pushFront adds a key to the front of the queue
 func (c *LRUCache) pushFront(key string) {
+	c.queueMutex.Lock()
 	c.queue = append([]string{key}, c.queue...)
+	c.queueMutex.Unlock()
 }
 
 // deleteFromQueue deletes a key from the queue
 func (c *LRUCache) deleteFromQueue(key string) {
+	c.queueMutex.Lock()
+	defer c.queueMutex.Unlock()
 	for i, k := range c.queue {
 		if k == key {
 			c.queue = append(c.queue[:i], c.queue[i+1:]...)
@@ -34,9 +41,11 @@ func (c *LRUCache) deleteLast() {
 	if len(c.queue) == 0 {
 		return
 	}
+	c.queueMutex.Lock()
 	key := c.queue[len(c.queue)-1]
 	c.queue = c.queue[:len(c.queue)-1]
-	c.Delete(key)
+	c.queueMutex.Unlock()
+	c.Cache.Delete(key)
 }
 
 // Set sets a value in the cache and sends it to the other nodes
@@ -60,7 +69,7 @@ func (c *LRUCache) evict() {
 
 // Get gets a value from the cache
 func (c *LRUCache) Get(key string) interface{} {
-	value := c.storage[key]
+	value := c.Cache.Get(key)
 	if value != nil {
 		c.pushFront(key)
 	}
@@ -73,6 +82,13 @@ func (c *LRUCache) Delete(key string) {
 	c.Cache.Delete(key)
 }
 
+func (c *LRUCache) Clean() {
+	c.Cache.Clean()
+	c.queueMutex.Lock()
+	c.queue = make([]string, 0)
+	c.queueMutex.Unlock()
+}
+
 // NewLRUCache creates a new LRUCache with the given name,
 // address, and maxEntries.
 // It also starts a listener to receive messages from other nodes
@@ -80,14 +96,11 @@ func (c *LRUCache) Delete(key string) {
 // address is the address of the cache
 // maxEntries is the maximum number of entries that the cache can have
 func NewLRUCache(name, address string, maxEntries int) *LRUCache {
-	c := &LRUCache{
-		Cache: Cache{
-			Name:    name,
-			Address: address,
-			storage: make(map[string]interface{}),
-		},
+	c := LRUCache{
+		Cache:      *NewCache(name, address),
 		MaxEntries: maxEntries,
+		queue:      make([]string, 0),
+		queueMutex: sync.Mutex{},
 	}
-	go c.startListener()
-	return c
+	return &c
 }

@@ -37,10 +37,10 @@ func (m *message) fromUDP(data []byte) error {
 	return nil
 }
 
-// IsCleanMessage returns true if the message is a clean message.
+// IsCleanMessage returns true if the message is a sendClean message.
 func (m *message) isCleanMessage() bool {
 	return m.Key == cleanMessageKey && m.Value == nil
 }
 
-// cleanMessageKey is the key used to send a clean message.
-const cleanMessageKey = "<clean>"
+// cleanMessageKey is the key used to send a sendClean message.
+const cleanMessageKey = "<sendClean>"
