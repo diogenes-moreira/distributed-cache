@@ -22,6 +22,11 @@ type LRUCache struct {
 
 func (c *LRUCache) clean() {
 	c.mutex.Lock()
+	if c.RemoveHook != nil {
+		for key, value := range c.storage {
+			go c.RemoveHook(key, value)
+		}
+	}
 	c.queue = make([]string, 0)
 	c.storage = make(map[string]interface{})
 	c.mutex.Unlock()
@@ -33,6 +38,9 @@ func (c *LRUCache) set(key string, value interface{}) {
 	if !exists {
 		c.queue = append(c.queue, key)
 		if len(c.queue) > c.MaxEntries {
+			if c.RemoveHook != nil {
+				go c.RemoveHook(c.queue[0], c.storage[c.queue[0]])
+			}
 			delete(c.storage, c.queue[0])
 			c.queue = c.queue[1:]
 		}
@@ -49,6 +57,9 @@ func (c *LRUCache) delete(key string) {
 	c.mutex.Lock()
 	index := slices.Index(c.queue, key)
 	if index != -1 {
+		if c.RemoveHook != nil {
+			go c.RemoveHook(key, c.storage[key])
+		}
 		c.queue = append(c.queue[:index], c.queue[index+1:]...)
 		delete(c.storage, key)
 	}

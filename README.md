@@ -34,6 +34,11 @@ func main() {
 		println(value.(string))
 	}
 	
+	//In addition hoy can set a function to be called when the key is not found in the cache
+	cache.Filler = func(key string) (interface{}, error) {
+        return "value",nil
+    }
+	
 	// LRU Cache Extend the Cache struct and limit the number of entries to 10.
 	lruCache := distributed_cache.NewLRUCache("lru", ":12345", 10)
 	lruCache.Set("key", "value")
@@ -43,4 +48,14 @@ func main() {
 	lruCacheWithTTL := distributed_cache.NewLRUCacheWithTTL("lru", ":12345", 10, time.Second*10)
 	lruCache.Set("key", "value")
 	value = lruCache.Get("key")
+	
+	//If you need to stop the cache listener you can call the Stop method
+	cache.StopListener()
+	
+	//If you need add a Hook to be called when a key is removed from the cache
+	//the hook run in a goroutine
+	cache.RemoveHook=func(key string, value interface{}) {
+        println("Key removed: ", key)
+    }
+	
 }

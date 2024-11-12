@@ -8,6 +8,7 @@ package distributed_cache
 import (
 	"context"
 	"github.com/google/uuid"
+	"log"
 	"slices"
 	"sync"
 	"time"
@@ -27,6 +28,11 @@ type LRUCacheWithTTL struct {
 
 func (c *LRUCacheWithTTL) clean() {
 	c.mutex.Lock()
+	if c.RemoveHook != nil {
+		for key, value := range c.storage {
+			go c.RemoveHook(key, value)
+		}
+	}
 	c.queue = make([]string, 0)
 	c.storage = make(map[string]interface{})
 	c.ttlMap = make(map[string]time.Time)
@@ -40,6 +46,9 @@ func (c *LRUCacheWithTTL) set(key string, value interface{}) {
 	if !exists {
 		c.queue = append(c.queue, key)
 		if len(c.queue) > c.MaxEntries {
+			if c.RemoveHook != nil {
+				go c.RemoveHook(c.queue[0], c.storage[c.queue[0]])
+			}
 			delete(c.storage, c.queue[0])
 			c.queue = c.queue[1:]
 		}
@@ -57,6 +66,9 @@ func (c *LRUCacheWithTTL) delete(key string) {
 	c.mutex.Lock()
 	index := slices.Index(c.queue, key)
 	if index != -1 {
+		if c.RemoveHook != nil {
+			go c.RemoveHook(key, c.storage[key])
+		}
 		c.queue = append(c.queue[:index], c.queue[index+1:]...)
 		delete(c.storage, key)
 		delete(c.ttlMap, key)
@@ -70,6 +82,9 @@ func (c *LRUCacheWithTTL) evict() {
 	for key, ttl := range c.ttlMap {
 		if time.Now().After(ttl) {
 			index := slices.Index(c.queue, key)
+			if c.RemoveHook != nil {
+				go c.RemoveHook(key, c.storage[key])
+			}
 			c.queue = append(c.queue[:index], c.queue[index+1:]...)
 			delete(c.storage, key)
 			delete(c.ttlMap, key)
@@ -94,8 +109,19 @@ func (c *LRUCacheWithTTL) Get(key string) interface{} {
 	out, exists := c.storage[key]
 	if exists {
 		c.ttlMap[key] = time.Now().Add(c.TTL)
+		c.mutex.Unlock()
+	} else {
+		c.mutex.Unlock()
+		var err error
+		if c.Filler != nil {
+			out, err = c.Filler(key)
+			if err != nil {
+				log.Println(err)
+			}
+			c.Set(key, out)
+		}
 	}
-	c.mutex.Unlock()
+
 	return out
 }
 

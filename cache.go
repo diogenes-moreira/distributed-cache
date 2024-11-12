@@ -3,6 +3,7 @@ package distributed_cache
 import (
 	"context"
 	"github.com/google/uuid"
+	"log"
 	"sync"
 )
 
@@ -16,9 +17,13 @@ type Cache struct {
 	storage      map[string]interface{}
 	Name         string             // Name of the cache
 	Address      string             // Port over which the cache will communicate
-	StopListener context.CancelFunc // Cancel function to stop the listener
-	context      context.Context
-	node         uuid.UUID
+	StopListener context.CancelFunc // Cancel function
+	// to stop the listener
+	Filler func(string) (interface{}, error) // Function to fill the cache
+	// when the key is not found
+	RemoveHook func(string, interface{}) // Function to remove the key from the cache
+	context    context.Context
+	node       uuid.UUID
 }
 
 func (c *Cache) getNode() uuid.UUID {
@@ -35,6 +40,11 @@ func (c *Cache) getName() string {
 
 func (c *Cache) clean() {
 	c.mutex.Lock()
+	if c.RemoveHook != nil {
+		for key, value := range c.storage {
+			go c.RemoveHook(key, value)
+		}
+	}
 	c.storage = make(map[string]interface{})
 	c.mutex.Unlock()
 }
@@ -47,6 +57,9 @@ func (c *Cache) set(key string, value interface{}) {
 
 func (c *Cache) delete(key string) {
 	c.mutex.Lock()
+	if c.RemoveHook != nil {
+		go c.RemoveHook(key, c.storage[key])
+	}
 	delete(c.storage, key)
 	c.mutex.Unlock()
 }
@@ -63,9 +76,18 @@ func (c *Cache) Set(key string, value interface{}) {
 
 // Get gets a value from the cache
 func (c *Cache) Get(key string) interface{} {
+	var err error
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	return c.storage[key]
+	out, exists := c.storage[key]
+	c.mutex.Unlock()
+	if !exists && c.Filler != nil {
+		out, err = c.Filler(key)
+		if err != nil {
+			log.Println(err)
+		}
+		c.Set(key, out)
+	}
+	return out
 }
 
 // Delete deletes a value from the cache
