@@ -2,6 +2,7 @@ package distributed_cache
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"sync"
 )
 
@@ -17,6 +18,37 @@ type Cache struct {
 	Address      string             // Port over which the cache will communicate
 	StopListener context.CancelFunc // Cancel function to stop the listener
 	context      context.Context
+	node         uuid.UUID
+}
+
+func (c *Cache) getNode() uuid.UUID {
+	return c.node
+}
+
+func (c *Cache) getAddress() string {
+	return c.Address
+}
+
+func (c *Cache) getName() string {
+	return c.Name
+}
+
+func (c *Cache) clean() {
+	c.mutex.Lock()
+	c.storage = make(map[string]interface{})
+	c.mutex.Unlock()
+}
+
+func (c *Cache) set(key string, value interface{}) {
+	c.mutex.Lock()
+	c.storage[key] = value
+	c.mutex.Unlock()
+}
+
+func (c *Cache) delete(key string) {
+	c.mutex.Lock()
+	delete(c.storage, key)
+	c.mutex.Unlock()
 }
 
 // Set sets a value in the cache and sends it to the other nodes
@@ -26,9 +58,7 @@ func (c *Cache) Set(key string, value interface{}) {
 		return
 	}
 	c.sendSet(key, value)
-	c.mutex.Lock()
-	c.storage[key] = value
-	c.mutex.Unlock()
+	c.set(key, value)
 }
 
 // Get gets a value from the cache
@@ -42,17 +72,13 @@ func (c *Cache) Get(key string) interface{} {
 // and sends the delete message to the other nodes
 func (c *Cache) Delete(key string) {
 	c.sendDelete(key)
-	c.mutex.Lock()
-	delete(c.storage, key)
-	c.mutex.Unlock()
+	c.delete(key)
 }
 
 // Clean deletes all values from the cache
 // and sends the sendClean message to the other nodes
 func (c *Cache) Clean() {
-	c.mutex.Lock()
-	c.storage = make(map[string]interface{})
-	c.mutex.Unlock()
+	c.clean()
 	c.sendClean()
 }
 
@@ -60,14 +86,15 @@ func (c *Cache) Clean() {
 // It also starts a listener to receive messages from other nodes
 func NewCache(name, address string) *Cache {
 	ctx, cancel := context.WithCancel(context.Background())
-	c := Cache{
+	c := &Cache{
 		mutex:        sync.Mutex{},
 		Name:         name,
 		Address:      address,
 		storage:      make(map[string]interface{}),
 		StopListener: cancel,
 		context:      ctx,
+		node:         uuid.New(),
 	}
-	go c.startListener(ctx)
-	return &c
+	go startListener(c, ctx)
+	return c
 }

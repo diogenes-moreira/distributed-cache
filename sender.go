@@ -11,19 +11,19 @@ import (
 
 // sendDelete sends a delete message to the other nodes for a given key
 func (c *Cache) sendDelete(key string) {
-	message := &message{Key: key, Value: nil, CacheName: c.Name}
+	message := &message{Key: key, Value: nil, CacheName: c.Name, Node: c.node}
 	sendMessage(c.Address, message)
 }
 
 // sendSet sends a set message to the other nodes for a given key and value
 func (c *Cache) sendSet(key string, value interface{}) {
-	message := &message{Key: key, Value: value, CacheName: c.Name}
+	message := &message{Key: key, Value: value, CacheName: c.Name, Node: c.node}
 	sendMessage(c.Address, message)
 }
 
 // sendClean sends a sendClean message to the other nodes
 func (c *Cache) sendClean() {
-	message := &message{Key: cleanMessageKey, Value: nil, CacheName: c.Name}
+	message := &message{Key: cleanMessageKey, Value: nil, CacheName: c.Name, Node: c.node}
 	sendMessage(c.Address, message)
 }
 

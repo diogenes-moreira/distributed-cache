@@ -7,6 +7,8 @@ package distributed_cache
 
 import (
 	"context"
+	"github.com/google/uuid"
+	"slices"
 	"sync"
 	"time"
 )
@@ -19,80 +21,96 @@ import (
 // to delete entries that have expired.
 type LRUCacheWithTTL struct {
 	LRUCache
-	TTL      time.Duration
-	ttlMap   map[string]time.Time
-	ttlMutex sync.Mutex
+	TTL    time.Duration
+	ttlMap map[string]time.Time
 }
 
-// pushFront adds a key to the front of the queue and updates the ttlMap.
-func (c *LRUCacheWithTTL) pushFront(key string) {
-	c.LRUCache.pushFront(key)
-	c.ttlMutex.Lock()
+func (c *LRUCacheWithTTL) clean() {
+	c.mutex.Lock()
+	c.queue = make([]string, 0)
+	c.storage = make(map[string]interface{})
+	c.ttlMap = make(map[string]time.Time)
+	c.mutex.Unlock()
+}
+
+func (c *LRUCacheWithTTL) set(key string, value interface{}) {
+	c.evict()
+	c.mutex.Lock()
+	_, exists := c.storage[key]
+	if !exists {
+		c.queue = append(c.queue, key)
+		if len(c.queue) > c.MaxEntries {
+			delete(c.storage, c.queue[0])
+			c.queue = c.queue[1:]
+		}
+	} else {
+		index := slices.Index(c.queue, key)
+		c.queue = append(c.queue[:index], c.queue[index+1:]...)
+		c.queue = append(c.queue, key)
+	}
 	c.ttlMap[key] = time.Now().Add(c.TTL)
-	c.ttlMutex.Unlock()
-}
-
-// deleteLast deletes the last key from the queue and updates the ttlMap.
-func (c *LRUCacheWithTTL) deleteLast() {
-	c.ttlMutex.Lock()
-	defer c.ttlMutex.Unlock()
-	if len(c.queue) == 0 {
-		return
-	}
-	key := c.queue[len(c.queue)-1]
-	delete(c.ttlMap, key)
-	c.LRUCache.deleteLast()
-}
-
-// deleteFromQueue deletes a key from the queue and updates the ttlMap.
-func (c *LRUCacheWithTTL) deleteFromQueue(key string) {
-	delete(c.ttlMap, key)
-	c.LRUCache.deleteFromQueue(key)
-}
-
-func (c *LRUCacheWithTTL) Set(key string, value interface{}) {
-	c.evict()
-	c.pushFront(key)
-	c.LRUCache.Set(key, value)
-}
-
-func (c *LRUCacheWithTTL) Get(key string) interface{} {
-	c.evict()
-	out := c.LRUCache.Get(key)
-	if out != nil {
-		c.pushFront(key)
-	}
-	return out
-}
-
-func (c *LRUCacheWithTTL) Delete(key string) {
-	c.ttlMutex.Lock()
-	c.delete(key)
-	c.ttlMutex.Unlock()
+	c.storage[key] = value
+	c.mutex.Unlock()
 }
 
 func (c *LRUCacheWithTTL) delete(key string) {
-	c.deleteFromQueue(key)
-	c.LRUCache.Delete(key)
-	delete(c.ttlMap, key)
+	c.mutex.Lock()
+	index := slices.Index(c.queue, key)
+	if index != -1 {
+		c.queue = append(c.queue[:index], c.queue[index+1:]...)
+		delete(c.storage, key)
+		delete(c.ttlMap, key)
+	}
+	c.mutex.Unlock()
 }
 
-// evict deletes the last key from the queue and updates the ttlMap.
+// evict deletes entries that have expired
 func (c *LRUCacheWithTTL) evict() {
-	c.ttlMutex.Lock()
-	defer c.ttlMutex.Unlock()
+	c.mutex.Lock()
 	for key, ttl := range c.ttlMap {
-		if ttl.Before(time.Now()) {
-			c.delete(key)
+		if time.Now().After(ttl) {
+			index := slices.Index(c.queue, key)
+			c.queue = append(c.queue[:index], c.queue[index+1:]...)
+			delete(c.storage, key)
+			delete(c.ttlMap, key)
 		}
 	}
+	c.mutex.Unlock()
 }
 
+func (c *LRUCacheWithTTL) Set(key string, value interface{}) {
+	if value == nil {
+		c.Delete(key)
+		return
+	}
+	c.sendSet(key, value)
+	c.set(key, value)
+}
+
+// Get gets a value from the cache
+func (c *LRUCacheWithTTL) Get(key string) interface{} {
+	c.evict()
+	c.mutex.Lock()
+	out, exists := c.storage[key]
+	if exists {
+		c.ttlMap[key] = time.Now().Add(c.TTL)
+	}
+	c.mutex.Unlock()
+	return out
+}
+
+// Delete deletes a value from the cache
+// and sends the delete message to the other nodes
+func (c *LRUCacheWithTTL) Delete(key string) {
+	c.sendDelete(key)
+	c.delete(key)
+}
+
+// Clean deletes all values from the cache
+// and sends the sendClean message to the other nodes
 func (c *LRUCacheWithTTL) Clean() {
-	c.LRUCache.Clean()
-	c.ttlMutex.Lock()
-	c.ttlMap = make(map[string]time.Time)
-	c.ttlMutex.Unlock()
+	c.clean()
+	c.sendClean()
 }
 
 // NewLRUCacheWithTTL creates a new LRUCacheWithTTL with the given name,
@@ -104,23 +122,25 @@ func (c *LRUCacheWithTTL) Clean() {
 // maxEntries is the maximum number of entries that the cache can have
 // ttl is the time-to-live for each entry in the cache
 func NewLRUCacheWithTTL(name, address string, maxEntries int, ttl time.Duration) *LRUCacheWithTTL {
+	ctx, cancel := context.WithCancel(context.Background())
 	c := &LRUCacheWithTTL{
-		LRUCache: *NewLRUCache(name, address, maxEntries),
-		TTL:      ttl,
-		ttlMap:   make(map[string]time.Time),
-		ttlMutex: sync.Mutex{},
+		LRUCache: LRUCache{
+			Cache: Cache{
+				mutex:        sync.Mutex{},
+				storage:      make(map[string]interface{}),
+				Name:         name,
+				Address:      address,
+				context:      ctx,
+				StopListener: cancel,
+				node:         uuid.New(),
+			},
+			MaxEntries: maxEntries,
+			queue:      make([]string, 0),
+		},
+		TTL:    ttl,
+		ttlMap: make(map[string]time.Time),
 	}
 
-	go func(ctx context.Context) {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				time.Sleep(ttl)
-				c.evict()
-			}
-		}
-	}(c.context)
+	go startListener(c, ctx)
 	return c
 }

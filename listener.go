@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
 	"net"
 	"os"
@@ -26,9 +27,17 @@ type uDPConnInterface interface {
 	Close() error
 }
 
+type iCache interface {
+	set(key string, value interface{})
+	clean()
+	getAddress() string
+	getName() string
+	getNode() uuid.UUID
+}
+
 // startListener starts the listener to receive messages from the other nodes
-func (c *Cache) startListener(ctx context.Context) {
-	conn := createListener(c.Address)
+func startListener(c iCache, ctx context.Context) {
+	conn := createListener(c.getAddress())
 	for {
 		select {
 		case <-ctx.Done():
@@ -44,20 +53,15 @@ func (c *Cache) startListener(ctx context.Context) {
 				log.Println(err)
 				continue
 			}
-			if message.CacheName != c.Name {
+			if message.CacheName != c.getName() || message.Node == c.getNode() {
 				continue
 			}
 			if message.isCleanMessage() {
-				c.mutex.Lock()
-				c.storage = make(map[string]interface{})
-				c.mutex.Unlock()
+				c.clean()
 				continue
 			} else {
-				c.Set(message.Key, message.Value)
+				c.set(message.Key, message.Value)
 			}
-		}
-		if ctx.Done() != nil {
-			return
 		}
 	}
 }
@@ -79,10 +83,6 @@ func createListener(address string) *net.UDPConn {
 // handleClient handles the client messages
 func handleClient(conn uDPConnInterface) (*message, error) {
 	buffer := make([]byte, 1024)
-	err := conn.SetReadDeadline(time.Now().Add(time.Second))
-	if err != nil {
-		return nil, err
-	}
 	n, _, err := conn.ReadFromUDP(buffer)
 	if err != nil {
 		log.Println(err)

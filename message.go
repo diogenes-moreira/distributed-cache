@@ -6,11 +6,13 @@ package distributed_cache
 import (
 	"bytes"
 	"encoding/gob"
+	"github.com/google/uuid"
 )
 
 // message is a struct that represents a message that can be sent between nodes.
 type message struct {
 	CacheName string
+	Node      uuid.UUID
 	Key       string
 	Value     interface{}
 }
