@@ -147,7 +147,7 @@ func (c *LRUCacheWithTTL) Clean() {
 // address is the address of the cache
 // maxEntries is the maximum number of entries that the cache can have
 // ttl is the time-to-live for each entry in the cache
-func NewLRUCacheWithTTL(name, address string, maxEntries int, ttl time.Duration) *LRUCacheWithTTL {
+func NewLRUCacheWithTTL(name, broadcast, address string, maxEntries int, ttl time.Duration) *LRUCacheWithTTL {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &LRUCacheWithTTL{
 		LRUCache: LRUCache{
@@ -156,6 +156,7 @@ func NewLRUCacheWithTTL(name, address string, maxEntries int, ttl time.Duration)
 				storage:      make(map[string]interface{}),
 				Name:         name,
 				Address:      address,
+				Broadcast:    broadcast,
 				context:      ctx,
 				StopListener: cancel,
 				node:         uuid.New(),

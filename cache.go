@@ -17,6 +17,7 @@ type Cache struct {
 	storage      map[string]interface{}
 	Name         string             // Name of the cache
 	Address      string             // Port over which the cache will communicate
+	Broadcast    string             // Broadcast addresses 255.255.255.255 for IPV4 all network
 	StopListener context.CancelFunc // Cancel function
 	// to stop the listener
 	Filler func(string) (interface{}, error) // Function to fill the cache
@@ -106,12 +107,13 @@ func (c *Cache) Clean() {
 
 // NewCache creates a new Cache with the given name and address
 // It also starts a listener to receive messages from other nodes
-func NewCache(name, address string) *Cache {
+func NewCache(name, broadcast, address string) *Cache {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Cache{
 		mutex:        sync.Mutex{},
 		Name:         name,
 		Address:      address,
+		Broadcast:    broadcast,
 		storage:      make(map[string]interface{}),
 		StopListener: cancel,
 		context:      ctx,

@@ -12,9 +12,9 @@ var lruCacheWithTTL *LRUCacheWithTTL
 
 func TestMain(m *testing.M) {
 	// Setup code
-	cache = NewCache("testCache", ":12345")
-	lruCache = NewLRUCache("testCache", ":12346", 2)
-	lruCacheWithTTL = NewLRUCacheWithTTL("testCacheWithTTL", ":12347", 2, 2*time.Second)
+	cache = NewCache("testCache", "255.255.255.255", ":12345")
+	lruCache = NewLRUCache("testCache", "255.255.255.255", ":12346", 2)
+	lruCacheWithTTL = NewLRUCacheWithTTL("testCacheWithTTL", "255.255.255.255", ":12347", 2, 2*time.Second)
 
 	// Run tests
 	code := m.Run()

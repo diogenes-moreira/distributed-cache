@@ -12,26 +12,26 @@ import (
 // sendDelete sends a delete message to the other nodes for a given key
 func (c *Cache) sendDelete(key string) {
 	message := &message{Key: key, Value: nil, CacheName: c.Name, Node: c.node}
-	sendMessage(c.Address, message)
+	sendMessage(c.Broadcast, c.Address, message)
 }
 
 // sendSet sends a set message to the other nodes for a given key and value
 func (c *Cache) sendSet(key string, value interface{}) {
 	message := &message{Key: key, Value: value, CacheName: c.Name, Node: c.node}
-	sendMessage(c.Address, message)
+	sendMessage(c.Broadcast, c.Address, message)
 }
 
 // sendClean sends a sendClean message to the other nodes
 func (c *Cache) sendClean() {
 	message := &message{Key: cleanMessageKey, Value: nil, CacheName: c.Name, Node: c.node}
-	sendMessage(c.Address, message)
+	sendMessage(c.Broadcast, c.Address, message)
 }
 
 // sendMessage sends a message to the other nodes,
 // the connection is created and closed in this function because is
 // a simple UDP message
-func sendMessage(address string, message *message) {
-	conn := createSender(address)
+func sendMessage(broadcast, address string, message *message) {
+	conn := createSender(broadcast, address)
 	defer func(conn *net.UDPConn) {
 		err := conn.Close()
 		if err != nil {
@@ -50,8 +50,8 @@ func sendMessage(address string, message *message) {
 	}
 }
 
-func createSender(address string) *net.UDPConn {
-	udpAddr, err := net.ResolveUDPAddr("udp", "255.255.255.255"+address)
+func createSender(broadcast, address string) *net.UDPConn {
+	udpAddr, err := net.ResolveUDPAddr("udp", broadcast+address)
 	if err != nil {
 		log.Fatal(err)
 	}

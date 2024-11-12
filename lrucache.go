@@ -89,7 +89,7 @@ func (c *LRUCache) Clean() {
 	c.sendClean()
 }
 
-func NewLRUCache(name string, address string, maxEntries int) *LRUCache {
+func NewLRUCache(name, broadcast, address string, maxEntries int) *LRUCache {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &LRUCache{
 		Cache: Cache{
@@ -98,6 +98,7 @@ func NewLRUCache(name string, address string, maxEntries int) *LRUCache {
 			storage:      make(map[string]interface{}),
 			context:      ctx,
 			StopListener: cancel,
+			Broadcast:    broadcast,
 			node:         uuid.New(),
 		},
 		MaxEntries: maxEntries,
